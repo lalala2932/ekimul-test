@@ -448,16 +448,31 @@ function decidePhase() {
   if (phase === "order") { order = []; clearLit(); }
   render();
 }
+// During setup a press only counts if the key is still held 150 ms later, so sensor flicker
+// on another module can't be mistaken for a press. Middle C is ignored for 800 ms after the
+// last module is ordered, so the same press can't count twice.
+const HOLD_MS = 150;
+let middleCFrom = 0;
 function onKeyDown(mac, keyIdx) {
-  const m = modules.get(mac);
+  if (phase === "order" || phase === "middleC") {
+    setTimeout(() => {
+      const m = modules.get(mac);
+      if (m && (m.keys & (1 << keyIdx))) setupPress(mac, keyIdx);
+    }, HOLD_MS);
+    return;
+  }
+  playPress(mac, keyIdx);
+}
+function setupPress(mac, keyIdx) {
   if (phase === "order") {
     if (!order.includes(mac)) {
       order.push(mac); flash(mac, RIGHT);
-      log(`module ${mac.slice(-5)} is position ${order.length}`);
-      if (order.length >= onlineModules().length) phase = "middleC";   // all ordered → ask for middle C
+      log(`module ${mac.slice(-5)} is position ${order.length} (from left)`);
+      if (order.length >= onlineModules().length) { phase = "middleC"; middleCFrom = Date.now() + 800; }
       render();
     }
   } else if (phase === "middleC") {
+    if (Date.now() < middleCFrom) return;
     const p = order.indexOf(mac);
     if (p < 0) return;
     const pressedBase = MIDDLE_C - keyIdx;
@@ -465,11 +480,16 @@ function onKeyDown(mac, keyIdx) {
     if (bases[0] < 0 || bases[bases.length - 1] + 11 > 127) { log("that doesn't fit on a piano, try again"); return; }
     order.forEach((mc, i) => assign(mc, i, bases[i]));
     flash("FF:FF:FF:FF:FF:FF", RIGHT);
-    log(`setup done: ${noteName(bases[0])} to ${noteName(bases[bases.length - 1] + 11)}`);
+    log(`middle C pressed on module ${mac.slice(-5)} (key ${NAMES[keyIdx]})`);
+    order.forEach((mc, i) => log(`  module ${mc.slice(-5)} → ${noteName(bases[i])}–${noteName(bases[i] + 11)}`));
     phase = "ready";
     setTimeout(() => send([0x12]), 500);
     render();
-  } else if (phase === "ready" && m.base !== NONE) {
+  }
+}
+function playPress(mac, keyIdx) {
+  const m = modules.get(mac);
+  if (phase === "ready" && m && m.base !== NONE) {
     onNoteDown(m.base + keyIdx);
     linkLocal(m.base + keyIdx, true);
   }
