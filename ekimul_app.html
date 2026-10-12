@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ekimul</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f6f4; --panel: #ffffff; --text: #16161a; --muted: #6b6b75; --line: #e2e2e6;
+  --accent: #1b6ef3; --ok: #1a9e5a; --white-key: #ffffff; --black-key: #1d1d22; --track: #e9e9ee;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111114; --panel: #1a1a1f; --text: #ececf1; --muted: #9a9aa6; --line: #2b2b33;
+          --white-key: #e9e9ee; --black-key: #050507; --track: #2b2b33; }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif;
+       font-size: 15px; line-height: 1.5; padding: 24px 16px 48px; }
+main { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; }
+h2 { font-size: 1rem; font-weight: 600; margin-bottom: 6px; }
+.status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.dot.on { background: var(--ok); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; }
+.group { display: flex; align-items: center; gap: 8px; }
+.group > label, .lbl { color: var(--muted); font-size: 0.85rem; }
+button, select { font: inherit; font-size: 0.9rem; padding: 8px 14px; border-radius: 6px; cursor: pointer;
+         border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+select { padding: 6px 8px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, [role=button]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=range] { accent-color: var(--accent); }
+.swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; padding: 0; }
+.swatch[aria-pressed="true"] { border-color: var(--text); }
+p.hint { color: var(--muted); font-size: 0.88rem; }
+
+/* Setup */
+.prompt { font-size: 1.15rem; font-weight: 500; margin: 6px 0 12px; }
+.modules { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.mod { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 110px; font-size: 0.85rem; }
+.mod b { display: block; font-size: 0.95rem; }
+.mod.done { border-color: var(--ok); }
+.mod.off { opacity: 0.5; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Songs */
+.drop { display: block; margin-top: 8px; border: 1.5px dashed var(--line); border-radius: 8px; padding: 18px; text-align: center; color: var(--muted); cursor: pointer; }
+.drop.over { border-color: var(--accent); color: var(--accent); }
+.song-title { font-size: 1.1rem; font-weight: 600; margin: 12px 0 2px; }
+.tracks { display: grid; gap: 6px; margin: 10px 0 14px; }
+.trk { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; }
+.trk .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 6px 12px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.progress { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+.progress > div { height: 100%; width: 0; background: var(--accent); }
+.legend { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--muted); }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* Piano */
+.piano-wrap { overflow-x: auto; padding: 22px 0 4px; }
+.piano { position: relative; height: 170px; display: flex; min-width: max-content; }
+.wkey { width: 34px; height: 170px; background: var(--white-key); border: 1px solid #b9b9c2;
+        border-radius: 0 0 5px 5px; margin-right: -1px; cursor: pointer; position: relative; }
+.bkey { position: absolute; top: 0; width: 22px; height: 104px; background: var(--black-key);
+        border-radius: 0 0 4px 4px; cursor: pointer; z-index: 2; }
+.lit { position: absolute; left: 4px; right: 4px; bottom: 6px; height: 14px; border-radius: 3px; }
+.bkey .lit { left: 3px; right: 3px; bottom: 5px; height: 10px; }
+.down { box-shadow: inset 0 0 0 3px var(--ok); }
+.label { position: absolute; bottom: 24px; width: 100%; text-align: center; font-size: 0.65rem; color: #777; }
+.octname { position: absolute; top: -20px; left: 2px; font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+.empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; }
+
+#log { font-family: ui-monospace, Menlo, monospace; font-size: 0.78rem; color: var(--muted);
+       height: 140px; overflow-y: auto; white-space: pre-wrap; margin-top: 6px; }
+.banner { background: #fff4e5; color: #7a3a00; border: 1px solid #f3c58a; border-radius: 8px; padding: 12px 14px; display: none; }
+@media (prefers-color-scheme: dark) { .banner { background: #2a1d0c; color: #f3c58a; border-color: #6b4512; } }
+.hidden { display: none !important; }
+
+/* LumiLink */
+input[type=text], input[type=password] { font: inherit; font-size: 0.9rem; padding: 7px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text); min-width: 0; }
+h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
+.ll-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+.ll-card { border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 10px; align-content: start; }
+.ll-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rooms { display: grid; gap: 6px; }
+.room-item { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 0.88rem; }
+.room-item .meta { flex: 1; min-width: 0; }
+.room-item .meta span { color: var(--muted); font-size: 0.8rem; display: block; }
+.code { font-family: ui-monospace, Menlo, monospace; font-size: 1.6rem; font-weight: 600; letter-spacing: 0.08em; }
+.members { display: grid; gap: 6px; }
+.member { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+.member .who { flex: 1; min-width: 0; }
+.member button { padding: 4px 10px; font-size: 0.8rem; }
+.cdot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.badge { font-size: 0.72rem; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); margin-left: 4px; }
+.mini { position: relative; height: 64px; display: flex; margin-top: 8px; }
+.mini .w { flex: 1; border: 1px solid #b9b9c2; border-left-width: 0; background: var(--white-key); border-radius: 0 0 2px 2px; }
+.mini .w:first-child { border-left-width: 1px; }
+.mini .b { position: absolute; top: 0; height: 38px; background: var(--black-key); border-radius: 0 0 2px 2px; z-index: 2; }
+@media (max-width: 760px) { .ll-cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>ekimul</h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">Not connected</span></div>
+  </header>
+
+  <div class="banner" id="noBle">
+    This browser can't use Bluetooth. Open this page in Chrome or Edge on a laptop or Android phone.
+    On iPhone, use the Bluefy browser.
+  </div>
+
+  <!-- Setup -->
+  <section class="panel" id="setup">
+    <h2 id="setupTitle">Connect</h2>
+    <p class="prompt" id="prompt"></p>
+    <div class="modules" id="modList"></div>
+    <div class="actions">
+      <button class="primary" id="connectBtn">Connect</button>
+      <button id="nextBtn" class="hidden">Next</button>
+      <button id="redoBtn" class="hidden">Redo setup</button>
+    </div>
+  </section>
+
+  <!-- LumiLink -->
+  <section class="panel" id="lumilink">
+    <h2>LumiLink</h2>
+    <p class="hint">Play together with other ekimul pianos anywhere. You can also join without an ekimul and play on the on-screen keyboard.</p>
+
+    <div id="llConfig" class="hidden" style="margin-top:12px">
+      <p class="hint" style="margin-bottom:8px">Connect LumiLink to your Supabase project (Project Settings → API).</p>
+      <div class="ll-row">
+        <input type="text" id="cfgUrl" placeholder="Project URL (https://….supabase.co)" style="flex:2 1 260px" aria-label="Supabase project URL">
+        <input type="password" id="cfgKey" placeholder="anon / publishable key" style="flex:2 1 260px" aria-label="Supabase key">
+        <button class="primary" id="cfgSave">Save</button>
+      </div>
+    </div>
+
+    <div id="llLobby" class="hidden">
+      <div class="ll-row" style="margin-top:12px">
+        <label for="llName" class="lbl">Your name</label>
+        <input type="text" id="llName" maxlength="24" placeholder="e.g. Sheng">
+      </div>
+      <div class="ll-cols">
+        <div class="ll-card">
+          <h3>Create a room</h3>
+          <input type="text" id="newName" maxlength="40" placeholder="Room name" aria-label="Room name">
+          <div class="ll-row">
+            <span class="seg" id="visSeg">
+              <button data-vis="private" aria-pressed="true">Private</button>
+              <button data-vis="public" aria-pressed="false">Public</button>
+            </span>
+            <select id="newMode" aria-label="Mode">
+              <option value="lead">Lead · one plays, all follow</option>
+              <option value="classroom">Classroom · teacher ↔ students</option>
+              <option value="jam">Jam · everyone ↔ everyone</option>
+            </select>
+            <select id="newMax" aria-label="Max players"></select>
+          </div>
+          <div><button class="primary" id="createBtn">Create room</button></div>
+        </div>
+        <div class="ll-card">
+          <h3>Join a room</h3>
+          <div class="ll-row">
+            <input type="text" id="joinCode" maxlength="7" placeholder="Code, e.g. K7M-Q2P" aria-label="Room code" style="text-transform:uppercase">
+            <button id="joinBtn">Join</button>
+          </div>
+          <h3 style="margin-top:6px">Public rooms</h3>
+          <div class="rooms" id="publicRooms"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="llRoom" class="hidden" style="margin-top:12px">
+      <div class="ll-row" style="justify-content:space-between">
+        <div>
+          <div class="song-title" id="roomName" style="margin:0"></div>
+          <span class="lbl" id="roomVis"></span>
+        </div>
+        <div style="text-align:right">
+          <div class="code" id="roomCode"></div>
+          <button id="copyLink">Copy invite link</button>
+        </div>
+      </div>
+      <div class="controls" style="margin-top:12px">
+        <div class="group"><label for="roomMode">Mode</label>
+          <select id="roomMode">
+            <option value="lead">Lead · one plays, all follow</option>
+            <option value="classroom">Classroom · teacher ↔ students</option>
+            <option value="jam">Jam · everyone ↔ everyone</option>
+          </select>
+        </div>
+        <label class="group" id="lockWrap"><input type="checkbox" id="roomLock"> <span class="lbl">Lock room</span></label>
+        <label class="group"><input type="checkbox" id="optSound"> <span class="lbl">Piano sound for others' playing</span></label>
+        <div class="group"><label for="optVol">Volume</label><input type="range" id="optVol" min="0" max="100"></div>
+        <div class="group"><span class="lbl">Notes outside my modules</span>
+          <span class="seg" id="foldSeg">
+            <button data-fold="1">Fold in</button>
+            <button data-fold="0">Screen only</button>
+          </span>
+        </div>
+      </div>
+      <p class="hint" id="modeHint" style="margin-top:10px"></p>
+      <div class="members" id="members" style="margin-top:10px"></div>
+      <h3 style="margin-top:14px">Everyone's playing</h3>
+      <div class="mini" id="mini" aria-label="Room keyboard"></div>
+      <div style="margin-top:12px"><button id="leaveBtn">Leave room</button></div>
+    </div>
+    <p class="hint" id="llMsg" style="margin-top:10px"></p>
+  </section>
+
+  <!-- Songs -->
+  <section class="panel hidden" id="songs">
+    <h2>Songs</h2>
+    <label class="drop" id="drop" tabindex="0">
+      Drop a MIDI file here, or click to choose one (.mid)
+      <input type="file" id="fileIn" accept=".mid,.midi,audio/midi" hidden>
+    </label>
+    <div class="actions" style="margin-top:10px">
+      <button id="demoBtn">Try "Twinkle Twinkle"</button>
+    </div>
+
+    <div id="songUi" class="hidden">
+      <div class="song-title" id="songTitle"></div>
+      <p class="hint" id="songInfo"></p>
+      <div class="tracks" id="tracks"></div>
+
+      <div class="controls">
+        <div class="group">
+          <span class="lbl">Mode</span>
+          <span class="seg" id="modeSeg">
+            <button data-mode="wait" aria-pressed="true">Wait for me</button>
+            <button data-mode="play" aria-pressed="false">Play along</button>
+          </span>
+        </div>
+        <div class="group">
+          <label for="speed">Speed</label>
+          <input type="range" id="speed" min="25" max="150" step="5" value="100">
+          <span id="speedVal" class="lbl">100%</span>
+        </div>
+        <div class="group">
+          <span class="lbl">Octave</span>
+          <button id="shiftDown" aria-label="Octave down">−</button>
+          <span id="shiftVal" class="lbl">0</span>
+          <button id="shiftUp" aria-label="Octave up">+</button>
+          <button id="fitBtn">Auto-fit</button>
+        </div>
+      </div>
+
+      <div class="controls" style="margin-top:14px">
+        <button class="primary" id="playBtn">Start</button>
+        <button id="stopBtn">Stop</button>
+        <span class="legend"><i style="background:rgb(0,200,60)"></i>Right hand</span>
+        <span class="legend"><i style="background:rgb(0,90,255)"></i>Left hand</span>
+        <span id="playStatus" class="hint"></span>
+      </div>
+      <div class="progress"><div id="bar"></div></div>
+    </div>
+  </section>
+
+  <!-- Free play -->
+  <section class="panel controls hidden" id="controls">
+    <div class="group"><label>Color</label><span id="swatches" class="group"></span></div>
+    <div class="group">
+      <label for="bright">Brightness</label>
+      <input type="range" id="bright" min="5" max="255" value="25">
+    </div>
+    <button id="clearBtn">Clear all</button>
+  </section>
+
+  <section class="panel">
+    <p class="hint">Click a key to light it. Keys pressed on the real piano get a green outline.</p>
+    <div class="piano-wrap"><div class="piano" id="piano"></div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Log</h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SERVICE   = "6e7a0001-3c1f-4b8e-9a51-6b6b696d756c";
+const LED_CHAR  = "6e7a0002-3c1f-4b8e-9a51-6b6b696d756c";
+const KEYS_CHAR = "6e7a0003-3c1f-4b8e-9a51-6b6b696d756c";
+const NONE = 0xFF, MIDDLE_C = 60;
+const NAMES = ["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
+const COLORS = { Green:[0,200,60], Blue:[0,90,255], Red:[255,20,20], Yellow:[255,170,0], Purple:[150,0,255], White:[255,255,255] };
+const RIGHT = [0,200,60], LEFT = [0,90,255], WRONG = [255,20,20], OFF = [0,0,0];
+const noteName = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
+const isBlack = n => [1,3,6,8,10].includes(n % 12);
+const sameRgb = (a, b) => a && b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+
+const $ = id => document.getElementById(id);
+const log = m => { const el = $("log"); el.textContent += new Date().toLocaleTimeString() + "  " + m + "\n"; el.scrollTop = el.scrollHeight; };
+
+// ════════ Connection & state ════════════════════════════════════════════
+let device = null, ledChar = null;
+const modules = new Map();     // mac -> {mac, pos, base, keys, online}
+let phase = "connect";         // connect | order | middleC | ready
+let order = [];
+let color = COLORS.Green;
+
+let chain = Promise.resolve();
+function send(bytes) {
+  if (!ledChar) return;
+  const d = new Uint8Array(bytes);
+  chain = chain.then(() => ledChar.writeValueWithoutResponse ? ledChar.writeValueWithoutResponse(d) : ledChar.writeValue(d))
+               .catch(e => log("write failed: " + e.message));
+}
+const macBytes = mac => mac.split(":").map(h => parseInt(h, 16));
+const flash  = (mac, rgb) => send([0x11, ...macBytes(mac), ...rgb]);
+const assign = (mac, pos, base) => send([0x10, ...macBytes(mac), pos, base]);
+
+// ── Lit notes: one table, batched to the piano ──────────────────────────
+const lit = new Map();          // note -> rgb (what should be shown)
+let pending = new Map();        // note -> rgb waiting to be sent
+let flushScheduled = false;
+function setLit(n, rgb) {
+  if (!rgb || sameRgb(rgb, OFF)) { if (!lit.has(n)) return; lit.delete(n); rgb = OFF; }
+  else { if (sameRgb(lit.get(n), rgb)) return; lit.set(n, rgb); }
+  pending.set(n, rgb);
+  if (!flushScheduled) { flushScheduled = true; queueMicrotask(flushLit); }
+}
+function flushLit() {
+  flushScheduled = false;
+  const items = [...pending]; pending = new Map();
+  for (let i = 0; i < items.length; i += 4) {            // 4 notes per write fits the smallest BLE packet
+    const bytes = [0x01];
+    for (const [n, rgb] of items.slice(i, i + 4)) bytes.push(n, ...rgb);
+    send(bytes);
+  }
+  for (const [n] of items) paintKey(n);
+}
+function clearLit() { lit.clear(); pending = new Map(); send([0x02]); refreshKeys(); }
+
+// ── Connect ─────────────────────────────────────────────────────────────
+async function connect() {
+  try {
+    device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE] }] });
+    device.addEventListener("gattserverdisconnected", onDisconnect);
+    $("statusText").textContent = "Connecting…";
+    const svc = await (await device.gatt.connect()).getPrimaryService(SERVICE);
+    ledChar = await svc.getCharacteristic(LED_CHAR);
+    const keys = await svc.getCharacteristic(KEYS_CHAR);
+    keys.addEventListener("characteristicvaluechanged", onRoster);
+    await keys.startNotifications();
+    $("dot").classList.add("on");
+    $("statusText").textContent = "Connected via " + (device.name || "ekimul");
+    $("connectBtn").textContent = "Disconnect";
+    log("connected to " + device.name);
+    send([0x03, +$("bright").value]);
+    send([0x12]);
+    setTimeout(decidePhase, 1200);
+  } catch (e) { log("connect failed: " + e.message); $("statusText").textContent = "Not connected"; }
+}
+function onDisconnect() {
+  stopSong();
+  ledChar = null; modules.clear(); phase = "connect";
+  $("dot").classList.remove("on"); $("statusText").textContent = "Disconnected";
+  $("connectBtn").textContent = "Connect"; log("disconnected");
+  render();
+}
+
+// Roster entry: [mac(6), pos, base, mask_lo, mask_hi, online]
+function onRoster(ev) {
+  const v = ev.target.value, b = i => v.getUint8(i);
+  const mac = [0,1,2,3,4,5].map(i => b(i).toString(16).padStart(2, "0").toUpperCase()).join(":");
+  const entry = { mac, pos: b(6), base: b(7), keys: b(8) | (b(9) << 8), online: !!b(10) };
+  const prev = modules.get(mac);
+  if (!prev) log(`found module ${mac.slice(-5)}${entry.pos !== NONE ? " (position " + (entry.pos + 1) + ")" : ""}`);
+  const rangeChanged = !prev || prev.base !== entry.base || prev.online !== entry.online;
+  const newDown = entry.keys & ~(prev ? prev.keys : 0);
+  modules.set(mac, entry);
+  if (newDown) for (let i = 0; i < 12; i++) if (newDown & (1 << i)) onKeyDown(mac, i);
+  const newUp = (prev ? prev.keys : 0) & ~entry.keys;
+  if (newUp && phase === "ready" && entry.base !== NONE)
+    for (let i = 0; i < 12; i++) if (newUp & (1 << i)) linkLocal(entry.base + i, false);
+  if (rangeChanged) render(); else refreshKeys();
+}
+
+// ════════ Setup ═════════════════════════════════════════════════════════
+const onlineModules = () => [...modules.values()].filter(m => m.online);
+function decidePhase() {
+  const mods = onlineModules();
+  phase = mods.length && mods.every(m => m.pos !== NONE && m.base !== NONE) ? "ready" : "order";
+  if (phase === "order") { order = []; clearLit(); }
+  render();
+}
+function onKeyDown(mac, keyIdx) {
+  const m = modules.get(mac);
+  if (phase === "order") {
+    if (!order.includes(mac)) {
+      order.push(mac); flash(mac, RIGHT);
+      log(`module ${mac.slice(-5)} is position ${order.length}`); render();
+    }
+  } else if (phase === "middleC") {
+    const p = order.indexOf(mac);
+    if (p < 0) return;
+    const pressedBase = MIDDLE_C - keyIdx;
+    const bases = order.map((_, i) => pressedBase + 12 * (i - p));
+    if (bases[0] < 0 || bases[bases.length - 1] + 11 > 127) { log("that doesn't fit on a piano, try again"); return; }
+    order.forEach((mc, i) => assign(mc, i, bases[i]));
+    flash("FF:FF:FF:FF:FF:FF", RIGHT);
+    log(`setup done: ${noteName(bases[0])} to ${noteName(bases[bases.length - 1] + 11)}`);
+    phase = "ready";
+    setTimeout(() => send([0x12]), 500);
+    render();
+  } else if (phase === "ready" && m.base !== NONE) {
+    onNoteDown(m.base + keyIdx);
+    linkLocal(m.base + keyIdx, true);
+  }
+}
+
+// ════════ Rendering ═════════════════════════════════════════════════════
+function range() {
+  const a = onlineModules().filter(m => m.base !== NONE);
+  if (!a.length) return null;
+  return { lo: Math.min(...a.map(m => m.base)), hi: Math.max(...a.map(m => m.base)) + 11 };
+}
+function render() {
+  const mods = onlineModules();
+  const ready = phase === "ready" && !!ledChar;
+  $("controls").classList.toggle("hidden", !ready);
+  $("songs").classList.toggle("hidden", !ready);
+  $("nextBtn").classList.add("hidden");
+  $("redoBtn").classList.toggle("hidden", !ready);
+
+  if (!ledChar) {
+    $("setupTitle").textContent = "Connect";
+    $("prompt").textContent = 'Turn on your ekimul modules, then tap Connect and pick any "ekimul" device.';
+  } else if (phase === "order") {
+    $("setupTitle").textContent = `Setup 1 of 2 · ${mods.length} module${mods.length === 1 ? "" : "s"} found`;
+    $("prompt").textContent = order.length < mods.length
+      ? `Press any key on the ${order.length === 0 ? "LEFTMOST" : "next"} module (${order.length + 1} of ${mods.length}).`
+      : "All modules ordered.";
+    if (order.length) { $("nextBtn").classList.remove("hidden"); $("nextBtn").textContent = order.length < mods.length ? "Skip remaining" : "Next"; }
+  } else if (phase === "middleC") {
+    $("setupTitle").textContent = "Setup 2 of 2";
+    $("prompt").textContent = "Now press MIDDLE C on the piano.";
+  } else {
+    const r = range(), n = mods.filter(m => m.base !== NONE).length;
+    $("setupTitle").textContent = "Ready";
+    $("prompt").textContent = r ? `${n} module${n === 1 ? "" : "s"} covering ${noteName(r.lo)} to ${noteName(r.hi)}.` : "";
+  }
+
+  const list = $("modList"); list.innerHTML = "";
+  const shown = phase === "order" || phase === "middleC"
+    ? [...order.map(mac => modules.get(mac)), ...mods.filter(m => !order.includes(m.mac))]
+    : [...modules.values()].sort((a, b) => a.pos - b.pos);
+  for (const m of shown) {
+    if (!m) continue;
+    const i = order.indexOf(m.mac);
+    const div = document.createElement("div");
+    div.className = "mod" + ((phase === "ready" ? m.pos !== NONE : i >= 0) ? " done" : "") + (m.online ? "" : " off");
+    const title = phase === "ready" ? (m.pos !== NONE ? `Module ${m.pos + 1}` : "Unassigned") : (i >= 0 ? `Module ${i + 1}` : "Waiting…");
+    div.innerHTML = `<b>${title}</b>${m.mac.slice(-5)}${m.online ? "" : " · offline"}` +
+                    (phase === "ready" && m.base !== NONE ? `<br>${noteName(m.base)}–${noteName(m.base + 11)}` : "");
+    list.appendChild(div);
+  }
+  buildPiano();
+  if (song) updateSongInfo();
+}
+
+// Range drawn on screen: your modules, or C3–B5 when you're in a LumiLink room without hardware
+function displayRange() {
+  const r = phase === "ready" ? range() : null;
+  return r || (link.room ? { lo: 48, hi: 83 } : null);
+}
+function buildPiano() {
+  const piano = $("piano"); piano.innerHTML = "";
+  const r = displayRange();
+  if (!r) { piano.innerHTML = '<div class="empty">The keyboard appears after setup, or when you join a LumiLink room.</div>'; return; }
+  let whites = 0;
+  for (let n = r.lo; n <= r.hi; n++) {
+    const black = isBlack(n);
+    const el = document.createElement("div");
+    el.className = black ? "bkey" : "wkey";
+    el.dataset.note = n;
+    el.setAttribute("role", "button"); el.tabIndex = 0; el.setAttribute("aria-label", noteName(n));
+    if (black) el.style.left = (whites * 33 - 11) + "px";
+    else {
+      whites++;
+      const l = document.createElement("span"); l.className = "label"; l.textContent = noteName(n); el.appendChild(l);
+      if (n % 12 === 0) { const o = document.createElement("span"); o.className = "octname"; o.textContent = n === 60 ? "Middle C" : noteName(n); el.appendChild(o); }
+    }
+    const litEl = document.createElement("span"); litEl.className = "lit"; el.appendChild(litEl);
+    // In a LumiLink room the on-screen keys play notes; otherwise they toggle lights.
+    const toggle = () => setLit(n, lit.has(n) ? OFF : color);
+    const press = down => { if (down === link.held.has(n)) return; el.classList.toggle("down", down); linkLocal(n, down); };
+    el.addEventListener("pointerdown", e => { if (link.room) { e.preventDefault(); press(true); } });
+    el.addEventListener("pointerup", () => { if (link.room) press(false); else toggle(); });
+    el.addEventListener("pointerleave", () => { if (link.room) press(false); });
+    el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (link.room) press(true); else toggle(); } });
+    el.addEventListener("keyup", e => { if ((e.key === "Enter" || e.key === " ") && link.room) press(false); });
+    piano.appendChild(el);
+  }
+  refreshKeys();
+}
+function paintKey(n) {
+  const el = document.querySelector(`[data-note="${n}"]`);
+  if (!el) return;
+  const rgb = lit.get(n);
+  el.querySelector(".lit").style.background = rgb ? `rgb(${rgb.join(",")})` : "transparent";
+}
+function refreshKeys() {
+  const down = new Set();
+  for (const m of onlineModules()) if (m.base !== NONE) for (let i = 0; i < 12; i++) if (m.keys & (1 << i)) down.add(m.base + i);
+  document.querySelectorAll("[data-note]").forEach(el => {
+    const n = +el.dataset.note;
+    el.classList.toggle("down", down.has(n));
+    paintKey(n);
+  });
+}
+
+// ════════ MIDI file parsing ═════════════════════════════════════════════
+function parseMidi(buf) {
+  const d = new DataView(buf); let p = 0;
+  const u8 = () => d.getUint8(p++);
+  const str = n => { let s = ""; for (let i = 0; i < n; i++) s += String.fromCharCode(d.getUint8(p + i)); return s; };
+  const varLen = () => { let v = 0, b; do { b = u8(); v = (v << 7) | (b & 0x7f); } while (b & 0x80); return v; };
+
+  if (str(4) !== "MThd") throw new Error("Not a MIDI file");
+  const hlen = d.getUint32(4), ntrks = d.getUint16(10), div = d.getUint16(12);
+  if (div & 0x8000) throw new Error("SMPTE-timed MIDI files aren't supported");
+  p = 8 + hlen;
+
+  const tempos = [{ tick: 0, uspq: 500000 }];
+  const tracks = [];
+  let title = "";
+  while (tracks.length < ntrks && p + 8 <= d.byteLength) {
+    const id = str(4), len = d.getUint32(p + 4); p += 8;
+    const end = p + len;
+    if (id !== "MTrk") { p = end; continue; }
+    let tick = 0, status = 0, name = "", channel = -1;
+    const open = new Map(), notes = [];
+    while (p < end) {
+      tick += varLen();
+      let b = d.getUint8(p);
+      if (b === 0xFF) {
+        p++; const type = u8(), l = varLen();
+        if (type === 0x51 && l === 3) tempos.push({ tick, uspq: (d.getUint8(p) << 16) | (d.getUint8(p + 1) << 8) | d.getUint8(p + 2) });
+        if (type === 0x03) { name = new TextDecoder().decode(new Uint8Array(buf, p, l)).trim(); if (!tracks.length && !title) title = name; }
+        p += l; continue;
+      }
+      if (b === 0xF0 || b === 0xF7) { p++; p += varLen(); continue; }
+      if (b & 0x80) { status = b; p++; }
+      else if (!status) throw new Error("Corrupt MIDI file");
+      const type = status & 0xF0, ch = status & 0x0F;
+      if (type === 0xC0 || type === 0xD0) { p += 1; continue; }
+      const d1 = u8(), d2 = u8();
+      const key = ch * 128 + d1;
+      if (type === 0x90 && d2 > 0) {
+        if (!open.has(key)) open.set(key, []);
+        open.get(key).push({ tick, vel: d2 });
+        if (channel < 0) channel = ch;
+      } else if (type === 0x80 || (type === 0x90 && d2 === 0)) {
+        const st = open.get(key);
+        if (st && st.length) { const on = st.shift(); notes.push({ startTick: on.tick, endTick: tick, note: d1, vel: on.vel, ch }); }
+      }
+    }
+    for (const [key, st] of open) for (const on of st) notes.push({ startTick: on.tick, endTick: tick, note: key % 128, vel: on.vel, ch: Math.floor(key / 128) });
+    p = end;
+    tracks.push({ name, notes, channel });
+  }
+
+  // ticks → seconds using the tempo map
+  tempos.sort((a, b) => a.tick - b.tick);
+  const segs = []; let sec = 0;
+  for (let i = 0; i < tempos.length; i++) {
+    if (i > 0) sec += (tempos[i].tick - tempos[i - 1].tick) * tempos[i - 1].uspq / 1e6 / div;
+    segs.push({ tick: tempos[i].tick, sec, uspq: tempos[i].uspq });
+  }
+  const toSec = t => { let s = segs[0]; for (const g of segs) { if (g.tick <= t) s = g; else break; } return s.sec + (t - s.tick) * s.uspq / 1e6 / div; };
+
+  const used = tracks.filter(t => t.notes.length);
+  used.forEach(t => { for (const n of t.notes) { n.start = toSec(n.startTick); n.end = Math.max(toSec(n.endTick), n.start + 0.05); } });
+  return { title, tracks: used };
+}
+
+// ════════ Songs ═════════════════════════════════════════════════════════
+let song = null;      // { title, tracks: [{name, notes, hand}] }
+let shift = 0;        // octave transpose in semitones (multiples of 12)
+let mode = "wait";
+let speed = 1;
+
+function loadSong(s) {
+  stopSong();
+  // Default hands: drums off; one melodic track → split at middle C; else 1st = right, 2nd = left, rest off
+  const melodic = s.tracks.filter(t => t.channel !== 9);
+  s.tracks.forEach(t => t.hand = "off");
+  if (melodic.length === 1) melodic[0].hand = "split";
+  else melodic.forEach((t, i) => t.hand = i === 0 ? "right" : i === 1 ? "left" : "off");
+  song = s; shift = 0; autoFit(false);
+  $("songUi").classList.remove("hidden");
+  $("songTitle").textContent = s.title || "Untitled";
+  renderTracks(); updateSongInfo();
+  log(`loaded "${s.title || "song"}": ${s.tracks.reduce((a, t) => a + t.notes.length, 0)} notes in ${s.tracks.length} track(s)`);
+}
+
+function renderTracks() {
+  const box = $("tracks"); box.innerHTML = "";
+  song.tracks.forEach((t, i) => {
+    const row = document.createElement("div"); row.className = "trk";
+    const name = document.createElement("span"); name.className = "name";
+    name.textContent = `${t.name || "Track " + (i + 1)}${t.channel === 9 ? " (drums)" : ""} · ${t.notes.length} notes`;
+    const sel = document.createElement("select");
+    sel.setAttribute("aria-label", "Hand for " + (t.name || "track " + (i + 1)));
+    for (const [v, l] of [["right","Right hand"],["left","Left hand"],["split","Split at middle C"],["off","Off"]]) {
+      const o = document.createElement("option"); o.value = v; o.textContent = l; if (t.hand === v) o.selected = true; sel.appendChild(o);
+    }
+    sel.addEventListener("change", () => { t.hand = sel.value; stopSong(); updateSongInfo(); });
+    row.append(name, sel); box.appendChild(row);
+  });
+}
+
+// All notes that will be played, with hand colors and transposition applied.
+function songNotes() {
+  const out = [];
+  for (const t of song.tracks) {
+    if (t.hand === "off") continue;
+    for (const n of t.notes) {
+      const note = n.note + shift;
+      const hand = t.hand === "split" ? (n.note >= MIDDLE_C ? "right" : "left") : t.hand;
+      out.push({ note, start: n.start, end: n.end, rgb: hand === "left" ? LEFT : RIGHT });
+    }
+  }
+  return out.sort((a, b) => a.start - b.start || a.note - b.note);
+}
+const inRange = n => { const r = range(); return r && n >= r.lo && n <= r.hi; };
+
+function autoFit(announce = true) {
+  const r = range(); if (!r || !song) return;
+  const notes = []; for (const t of song.tracks) if (t.hand !== "off") for (const n of t.notes) notes.push(n.note);
+  let best = 0, bestCount = -1;
+  for (let s = -48; s <= 48; s += 12) {
+    const c = notes.filter(n => n + s >= r.lo && n + s <= r.hi).length;
+    if (c > bestCount || (c === bestCount && Math.abs(s) < Math.abs(best))) { best = s; bestCount = c; }
+  }
+  shift = best; updateSongInfo();
+  if (announce) log(`auto-fit: shifted ${best / 12} octave(s)`);
+}
+
+function updateSongInfo() {
+  if (!song) return;
+  const notes = songNotes(), fit = notes.filter(n => inRange(n.note)).length;
+  const dur = notes.length ? Math.max(...notes.map(n => n.end)) : 0;
+  $("shiftVal").textContent = (shift > 0 ? "+" : "") + shift / 12;
+  $("songInfo").textContent = notes.length
+    ? `${fmt(dur)} · ${fit} of ${notes.length} notes fit your modules (${Math.round(100 * fit / notes.length)}%)` +
+      (fit < notes.length ? ". Notes outside your range are skipped." : "")
+    : "No tracks selected.";
+}
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+// ── Playback engine ─────────────────────────────────────────────────────
+let playing = false, paused = false;
+let events = [], evIdx = 0, active = new Map(), songTime = 0, lastWall = 0, songEnd = 0, rafId = 0;
+let chords = [], chordIdx = 0, needed = new Set();
+
+function startSong() {
+  if (!song) return;
+  if (playing && !paused) { pauseSong(); return; }
+  if (playing && paused) { resumeSong(); return; }
+  const notes = songNotes().filter(n => inRange(n.note));
+  if (!notes.length) { log("no playable notes in range — try Auto-fit"); return; }
+  clearLit();
+  playing = true; paused = false;
+  $("playBtn").textContent = "Pause";
+  songEnd = Math.max(...notes.map(n => n.end));
+  if (mode === "play") {
+    events = [];
+    // turn each light off slightly early so repeated notes visibly blink
+    for (const n of notes) { events.push({ t: n.start, on: true, n }); events.push({ t: Math.max(n.start + 0.05, n.end - 0.08), on: false, n }); }
+    events.sort((a, b) => a.t - b.t || (a.on - b.on));     // note-offs first at the same moment
+    evIdx = 0; active = new Map(); songTime = -0.5;          // short lead-in
+    lastWall = performance.now();
+    rafId = requestAnimationFrame(tick);
+  } else {
+    chords = [];
+    for (const n of notes) {
+      const last = chords[chords.length - 1];
+      if (last && n.start - last.start < 0.05) { if (!last.notes.some(x => x.note === n.note)) last.notes.push(n); }
+      else chords.push({ start: n.start, notes: [n] });
+    }
+    chordIdx = 0; showChord();
+  }
+}
+function pauseSong() {
+  paused = true; $("playBtn").textContent = "Resume";
+  if (mode === "play") { cancelAnimationFrame(rafId); }
+}
+function resumeSong() {
+  paused = false; $("playBtn").textContent = "Pause";
+  if (mode === "play") { lastWall = performance.now(); rafId = requestAnimationFrame(tick); }
+}
+function stopSong() {
+  cancelAnimationFrame(rafId);
+  playing = paused = false;
+  if ($("playBtn")) $("playBtn").textContent = "Start";
+  needed = new Set(); active = new Map();
+  if (ledChar || lit.size) clearLit();
+  $("bar").style.width = "0";
+  $("playStatus").textContent = "";
+}
+function finish() {
+  stopSong();
+  $("playStatus").textContent = "Finished!";
+  $("bar").style.width = "100%";
+  flash("FF:FF:FF:FF:FF:FF", RIGHT);
+}
+
+// Play-along: light each note for exactly as long as it sounds.
+function tick(now) {
+  songTime += (now - lastWall) / 1000 * speed; lastWall = now;
+  while (evIdx < events.length && events[evIdx].t <= songTime) {
+    const { on, n } = events[evIdx++];
+    const c = active.get(n.note) || [];
+    if (on) c.push(n.rgb); else c.shift();
+    if (c.length) active.set(n.note, c); else active.delete(n.note);
+    setLit(n.note, c.length ? c[c.length - 1] : OFF);
+  }
+  $("bar").style.width = Math.max(0, Math.min(100, 100 * songTime / songEnd)) + "%";
+  $("playStatus").textContent = `${fmt(Math.max(0, songTime))} / ${fmt(songEnd)}`;
+  if (evIdx >= events.length) { finish(); return; }
+  rafId = requestAnimationFrame(tick);
+}
+
+// Wait-for-me: light the next chord and wait until every note is pressed.
+function showChord() {
+  const wasLit = new Set(lit.keys());
+  for (const n of wasLit) setLit(n, OFF);
+  if (chordIdx >= chords.length) { finish(); return; }
+  const c = chords[chordIdx], idx = chordIdx;
+  needed = new Set(c.notes.map(n => n.note));
+  const light = () => { if (playing && chordIdx === idx) for (const n of c.notes) if (needed.has(n.note)) setLit(n.note, n.rgb); };
+  // same key again? blink off briefly so the learner sees a new step
+  if (c.notes.some(n => wasLit.has(n.note))) setTimeout(light, 120); else light();
+  $("bar").style.width = (100 * chordIdx / chords.length) + "%";
+  $("playStatus").textContent = `Step ${chordIdx + 1} of ${chords.length}: ${c.notes.map(n => noteName(n.note)).join(" + ")}`;
+}
+
+function onNoteDown(n) {
+  if (!(playing && !paused && mode === "wait")) return;
+  if (needed.has(n)) {
+    needed.delete(n);
+    setLit(n, OFF);
+    if (!needed.size) { chordIdx++; showChord(); }
+  } else if (!lit.has(n)) {
+    setLit(n, WRONG);
+    setTimeout(() => { if (sameRgb(lit.get(n), WRONG)) setLit(n, OFF); }, 300);
+  }
+}
+
+// Built-in demo so you can test without a file
+function demoSong() {
+  const right = [60,60,67,67,69,69,67, 65,65,64,64,62,62,60];
+  const left  = [48,null,52,null,53,null,52, 50,null,48,null,43,null,48];
+  const beat = 0.5, notesR = [], notesL = [];
+  right.forEach((n, i) => notesR.push({ note: n, start: i * beat, end: i * beat + beat * (i % 7 === 6 ? 2 : 0.9) }));
+  left.forEach((n, i) => { if (n !== null) notesL.push({ note: n, start: i * beat, end: i * beat + beat * 1.8 }); });
+  return { title: "Twinkle Twinkle Little Star", tracks: [
+    { name: "Right hand", notes: notesR, channel: 0 }, { name: "Left hand", notes: notesL, channel: 0 } ] };
+}
+
+// ════════ LumiLink ══════════════════════════════════════════════════════
+// Paste your Supabase project values here (or enter them once in the page):
+const SUPABASE_URL = "";   // e.g. "https://abcdefghijkl.supabase.co"
+const SUPABASE_KEY = "";   // the anon / publishable key (safe to put in a web page)
+
+const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";            // no 0/O, 1/I/L
+const PLAYER_COLORS = [[255,120,0],[200,0,255],[0,200,200],[255,0,120],[255,200,0],[120,80,255],[0,150,255],[160,255,0]];
+const LEAD_COLOR = [0,200,60];
+const MODE_HINT = {
+  lead: "Lead: the leader's notes light up on everyone's piano. Others play locally.",
+  classroom: "Classroom: the teacher's notes light up for every student. Each student's notes light up only for the teacher.",
+  jam: "Jam: everyone's notes light up for everyone, one color per person. Expect a small delay over the internet, so it works best as call and response.",
+};
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("ekimul." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("ekimul." + k, JSON.stringify(v)); } catch {} },
+};
+const randId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).replace(/-/g, "").slice(0, 10);
+
+const link = {
+  sb: null, lobby: null, room: null, code: null,
+  me: { id: randId(), name: store.get("name", "") },
+  joinedAt: 0, firstSync: true, creating: null,
+  members: [], settings: null, trackedJson: "",
+  held: new Set(),                  // my notes currently down
+  remote: new Map(),                // playerId -> { notes:Set, last }
+  shown: new Map(),                 // LED note -> rgb we put there for remote players
+  publicRooms: [],
+  sound: store.get("sound", true), volume: store.get("vol", 0.6), fold: store.get("fold", true),
+  visibility: "private",
+};
+
+function linkMsg(t) { $("llMsg").textContent = t || ""; if (t) log("LumiLink: " + t); }
+const fmtCode = c => c.slice(0, 3) + "-" + c.slice(3);
+const cleanCode = c => c.toUpperCase().replace(/[^A-Z0-9]/g, "");
+const makeCode = () => Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join("");
+
+function linkConfig() {
+  if (SUPABASE_URL && SUPABASE_KEY) return { url: SUPABASE_URL, key: SUPABASE_KEY };
+  return store.get("supabase", null);
+}
+
+function linkInit() {
+  const cfg = linkConfig();
+  if (!cfg) { renderLink(); return; }
+  if (!window.supabase) { linkMsg("Couldn't load the LumiLink library. Check your internet connection."); return; }
+  try {
+    link.sb = window.supabase.createClient(cfg.url, cfg.key, { realtime: { params: { eventsPerSecond: 60 } } });
+  } catch (e) { linkMsg("Supabase settings look wrong: " + e.message); return; }
+  link.lobby = link.sb.channel("lumilink-lobby", { config: { presence: { key: link.me.id } } });
+  link.lobby.on("presence", { event: "sync" }, () => {
+    link.publicRooms = Object.values(link.lobby.presenceState()).map(a => a[0]).filter(r => r && r.code);
+    renderLink();
+  }).subscribe(status => { if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") linkMsg("Couldn't reach the LumiLink server."); });
+  renderLink();
+  const invite = new URLSearchParams(location.search).get("room");
+  if (invite) { $("joinCode").value = fmtCode(cleanCode(invite)); if (link.me.name) joinRoom(cleanCode(invite)); }
+}
+
+function ensureName() {
+  const n = $("llName").value.trim();
+  if (!n) { linkMsg("Enter your name first."); $("llName").focus(); return false; }
+  link.me.name = n; store.set("name", n); return true;
+}
+
+function createRoom() {
+  if (!ensureName()) return;
+  const settings = {
+    name: $("newName").value.trim() || `${link.me.name}'s room`,
+    public: link.visibility === "public",
+    mode: $("newMode").value, max: +$("newMax").value,
+    lead: link.me.id, locked: false,
+  };
+  joinRoom(makeCode(), settings);
+}
+
+function joinRoom(code, newSettings = null) {
+  if (!link.sb) return;
+  if (!newSettings && !ensureName()) return;
+  if (code.length !== 6) { linkMsg("Room codes have 6 characters."); return; }
+  leaveRoom(true);
+  stopSong();
+  linkMsg(newSettings ? "Creating room…" : "Joining…");
+  link.code = code; link.creating = newSettings; link.settings = newSettings;
+  link.joinedAt = Date.now(); link.firstSync = true; link.trackedJson = "";
+  const ch = link.sb.channel("lumilink:" + code, { config: { broadcast: { self: false }, presence: { key: link.me.id } } });
+  link.room = ch;
+  ch.on("presence", { event: "sync" }, onRoomSync)
+    .on("broadcast", { event: "n" }, ({ payload }) => onRemoteNote(payload))
+    .on("broadcast", { event: "h" }, ({ payload }) => onRemoteHeld(payload))
+    .on("broadcast", { event: "kick" }, ({ payload }) => {
+      if (payload.id === link.me.id) { leaveRoom(); linkMsg("The host removed you from the room."); }
+    })
+    .subscribe(status => {
+      if (ch !== link.room) return;
+      if (status === "SUBSCRIBED") trackMe();
+      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") { leaveRoom(true); linkMsg("Couldn't reach the LumiLink server."); }
+    });
+}
+
+const amHost = () => link.members.length && link.members[0].id === link.me.id;
+
+function trackMe() {
+  if (!link.room) return;
+  const payload = { id: link.me.id, name: link.me.name, joinedAt: link.joinedAt, room: amHost() || link.creating ? link.settings : null };
+  const json = JSON.stringify(payload);
+  if (json === link.trackedJson) return;
+  link.trackedJson = json;
+  link.room.track(payload);
+}
+
+function onRoomSync() {
+  const ch = link.room; if (!ch) return;
+  const members = Object.values(ch.presenceState()).map(a => a[0]).filter(Boolean)
+    .sort((a, b) => a.joinedAt - b.joinedAt || (a.id < b.id ? -1 : 1));
+  if (!members.some(m => m.id === link.me.id)) return;            // wait until I'm in the list
+  const others = members.filter(m => m.id !== link.me.id);
+  const advertised = members.find(m => m.room && m.id !== link.me.id)?.room || members.find(m => m.room)?.room;
+
+  if (link.firstSync) {
+    link.firstSync = false;
+    if (link.creating) {
+      if (others.length) { leaveRoom(true); createRoom(); return; }   // code already in use: pick another
+      linkMsg("");
+    } else {
+      if (!others.length) { leaveRoom(true); linkMsg("No room with that code is open right now."); return; }
+      if (advertised?.locked) { leaveRoom(true); linkMsg("That room is locked."); return; }
+      if (advertised && members.length > advertised.max) { leaveRoom(true); linkMsg("That room is full."); return; }
+      linkMsg("");
+      log(`LumiLink: joined "${advertised?.name || "room"}"`);
+    }
+  }
+  link.members = members;
+  if (amHost()) {
+    let s = link.settings || advertised || { name: "Room", public: false, mode: "lead", max: 8, lead: link.me.id, locked: false };
+    if (!members.some(m => m.id === s.lead)) s = { ...s, lead: link.me.id };   // leader left → host leads
+    link.settings = s; link.creating = null;
+  } else if (advertised) {
+    link.settings = advertised;
+  }
+  trackMe();
+  updateLobby();
+  for (const id of [...link.remote.keys()]) if (!members.some(m => m.id === id)) clearPlayer(id);
+  refreshRemote();
+  renderLink();
+  buildPiano();
+}
+
+function hostUpdate(patch) {
+  if (!amHost()) return;
+  link.settings = { ...link.settings, ...patch };
+  trackMe(); updateLobby(); refreshRemote(); renderLink();
+}
+
+function updateLobby() {
+  if (!link.lobby) return;
+  const s = link.settings;
+  if (link.room && amHost() && s && s.public && !s.locked) {
+    link.lobby.track({ code: link.code, name: s.name, mode: s.mode, count: link.members.length, max: s.max });
+  } else link.lobby.untrack();
+}
+
+function leaveRoom(silent) {
+  if (!link.room) return;
+  for (const n of link.held) sendNote(n, false);
+  link.held.clear();
+  for (const id of [...link.remote.keys()]) clearPlayer(id);
+  refreshRemote();
+  const ch = link.room;
+  link.room = null; link.code = null; link.members = []; link.settings = null; link.creating = null;
+  try { ch.untrack(); } catch {}
+  link.sb.removeChannel(ch);
+  updateLobby();
+  if (!silent) linkMsg("You left the room.");
+  renderLink(); buildPiano();
+}
+
+// ── Who sends, who sees ─────────────────────────────────────────────────
+const isLead = id => link.settings && link.settings.lead === id;
+function canSend() { return link.room && link.settings && (link.settings.mode !== "lead" || isLead(link.me.id)); }
+function visible(fromId) {
+  if (!link.settings || fromId === link.me.id) return false;
+  switch (link.settings.mode) {
+    case "jam": return true;
+    case "classroom": return isLead(link.me.id) || isLead(fromId);
+    default: return isLead(fromId);
+  }
+}
+function colorFor(id) {
+  if (link.settings.mode !== "jam" && isLead(id)) return LEAD_COLOR;
+  const others = link.members.filter(m => m.id !== link.me.id && !(link.settings.mode !== "jam" && isLead(m.id)));
+  const i = Math.max(0, others.findIndex(m => m.id === id));
+  return PLAYER_COLORS[i % PLAYER_COLORS.length];
+}
+
+// ── My notes out ────────────────────────────────────────────────────────
+function sendNote(n, down) {
+  if (!canSend()) return;
+  link.room.send({ type: "broadcast", event: "n", payload: { f: link.me.id, n, d: down ? 1 : 0 } });
+}
+function linkLocal(n, down) {
+  if (!link.room) return;
+  if (down) link.held.add(n); else link.held.delete(n);
+  sendNote(n, down);
+  renderMini();
+}
+setInterval(() => {                                   // heartbeat: "these are the keys I'm holding"
+  if (canSend()) link.room.send({ type: "broadcast", event: "h", payload: { f: link.me.id, held: [...link.held] } });
+  const now = Date.now();                             // players silent for 3.5 s: clear their notes
+  for (const [id, p] of link.remote) if (now - p.last > 3500 && p.notes.size) clearPlayer(id);
+  refreshRemote();
+}, 1000);
+
+// ── Their notes in ──────────────────────────────────────────────────────
+function player(id) {
+  if (!link.remote.has(id)) link.remote.set(id, { notes: new Set(), last: Date.now() });
+  const p = link.remote.get(id); p.last = Date.now(); return p;
+}
+function onRemoteNote({ f, n, d }) {
+  if (!visible(f)) return;
+  const p = player(f);
+  if (d) { p.notes.add(n); soundOn(f + ":" + n, n); } else { p.notes.delete(n); soundOff(f + ":" + n); }
+  refreshRemote();
+}
+function onRemoteHeld({ f, held }) {
+  if (!visible(f)) { if (link.remote.has(f)) clearPlayer(f); return; }
+  const p = player(f), h = new Set(held);
+  for (const n of [...p.notes]) if (!h.has(n)) { p.notes.delete(n); soundOff(f + ":" + n); }
+  for (const n of h) p.notes.add(n);
+}
+function clearPlayer(id) {
+  const p = link.remote.get(id); if (!p) return;
+  for (const n of p.notes) soundOff(id + ":" + n);
+  link.remote.delete(id);
+}
+
+// Show remote notes on the LEDs (true pitch, or folded into range) and the room keyboard.
+function refreshRemote() {
+  const want = new Map(), r = phase === "ready" ? range() : null;
+  for (const [id, p] of link.remote) {
+    if (!visible(id)) continue;
+    const rgb = colorFor(id);
+    for (const n of p.notes) {
+      let m = n;
+      if (r && (m < r.lo || m > r.hi)) {
+        if (!link.fold) continue;
+        while (m < r.lo) m += 12;
+        while (m > r.hi) m -= 12;
+      }
+      want.set(m, rgb);
+    }
+  }
+  for (const [m] of link.shown) if (!want.has(m)) setLit(m, OFF);
+  for (const [m, rgb] of want) if (!sameRgb(link.shown.get(m), rgb)) setLit(m, rgb);
+  link.shown = want;
+  renderMini();
+}
+
+// ── Sound: a simple piano-like synth for other players' notes ───────────
+let audio = null, master = null;
+const voices = new Map();
+function ensureAudio() {
+  if (!audio) { audio = new (window.AudioContext || window.webkitAudioContext)(); master = audio.createGain(); master.connect(audio.destination); }
+  master.gain.value = link.volume;
+  if (audio.state === "suspended") audio.resume();
+}
+function soundOn(key, n) {
+  if (!link.sound) return;
+  ensureAudio(); soundOff(key);
+  const t = audio.currentTime, f = 440 * Math.pow(2, (n - 69) / 12);
+  const g = audio.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.35, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.12, t + 0.35);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 3.5);
+  const lp = audio.createBiquadFilter(); lp.type = "lowpass";
+  lp.frequency.setValueAtTime(Math.min(9000, f * 10), t);
+  lp.frequency.exponentialRampToValueAtTime(Math.max(400, f * 2), t + 1.2);
+  const o1 = audio.createOscillator(); o1.type = "triangle"; o1.frequency.value = f;
+  const o2 = audio.createOscillator(); o2.type = "sine"; o2.frequency.value = f * 2;
+  const g2 = audio.createGain(); g2.gain.value = 0.25;
+  o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(master);
+  o1.start(t); o2.start(t); o1.stop(t + 3.6); o2.stop(t + 3.6);
+  voices.set(key, { g, osc: [o1, o2] });
+}
+function soundOff(key) {
+  const v = voices.get(key); if (!v || !audio) return;
+  voices.delete(key);
+  const t = audio.currentTime;
+  v.g.gain.cancelScheduledValues(t);
+  v.g.gain.setValueAtTime(Math.max(0.0001, v.g.gain.value), t);
+  v.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+  for (const o of v.osc) { try { o.stop(t + 0.3); } catch {} }
+}
+
+// ── LumiLink UI ─────────────────────────────────────────────────────────
+function buildMini() {
+  const mini = $("mini"); mini.innerHTML = "";
+  const whites = []; for (let n = 21; n <= 108; n++) if (!isBlack(n)) whites.push(n);
+  const w = 100 / whites.length;
+  let wi = 0;
+  for (let n = 21; n <= 108; n++) {
+    const el = document.createElement("div");
+    el.dataset.mini = n;
+    if (isBlack(n)) { el.className = "b"; el.style.left = (wi * w - w * 0.3) + "%"; el.style.width = (w * 0.6) + "%"; }
+    else { el.className = "w"; wi++; }
+    el.title = noteName(n);
+    mini.appendChild(el);
+  }
+}
+function renderMini() {
+  const fill = new Map();
+  for (const [id, p] of link.remote) if (visible(id)) for (const n of p.notes) fill.set(n, colorFor(id));
+  for (const n of link.held) fill.set(n, [140, 140, 150]);
+  document.querySelectorAll("[data-mini]").forEach(el => {
+    const rgb = fill.get(+el.dataset.mini);
+    el.style.background = rgb ? `rgb(${rgb.join(",")})` : "";
+  });
+}
+
+function renderLink() {
+  const cfg = !!(link.sb || linkConfig());
+  $("llConfig").classList.toggle("hidden", cfg);
+  $("llLobby").classList.toggle("hidden", !link.sb || !!link.room);
+  $("llRoom").classList.toggle("hidden", !link.room || !link.settings || link.firstSync);
+  if (!$("llName").value && link.me.name) $("llName").value = link.me.name;
+
+  // public rooms
+  const list = $("publicRooms"); list.innerHTML = "";
+  if (!link.publicRooms.length) list.innerHTML = '<p class="hint">No public rooms right now.</p>';
+  for (const r of link.publicRooms) {
+    const row = document.createElement("div"); row.className = "room-item";
+    const meta = document.createElement("div"); meta.className = "meta";
+    meta.textContent = r.name;
+    const sub = document.createElement("span");
+    sub.textContent = `${r.mode[0].toUpperCase() + r.mode.slice(1)} · ${r.count}/${r.max} players`;
+    meta.appendChild(sub);
+    const b = document.createElement("button"); b.textContent = "Join";
+    b.disabled = r.count >= r.max;
+    b.addEventListener("click", () => joinRoom(r.code));
+    row.append(meta, b); list.appendChild(row);
+  }
+
+  if (!link.room || !link.settings) return;
+  const s = link.settings, host = amHost();
+  $("roomName").textContent = s.name;
+  $("roomVis").textContent = (s.public ? "Public room" : "Private room") + (s.locked ? " · locked" : "");
+  $("roomCode").textContent = fmtCode(link.code);
+  $("roomMode").value = s.mode; $("roomMode").disabled = !host;
+  $("lockWrap").classList.toggle("hidden", !host); $("roomLock").checked = !!s.locked;
+  $("optSound").checked = link.sound; $("optVol").value = Math.round(link.volume * 100);
+  $("foldSeg").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", (b.dataset.fold === "1") === link.fold));
+  const leadWord = s.mode === "classroom" ? "Teacher" : "Leader";
+  $("modeHint").textContent = MODE_HINT[s.mode] + (s.mode !== "jam" ? ` ${leadWord}: ${link.members.find(m => isLead(m.id))?.name || "—"}.` : "");
+
+  const box = $("members"); box.innerHTML = "";
+  for (const m of link.members) {
+    const row = document.createElement("div"); row.className = "member";
+    const dot = document.createElement("span"); dot.className = "cdot";
+    dot.style.background = m.id === link.me.id ? "rgb(140,140,150)" : `rgb(${colorFor(m.id).join(",")})`;
+    const who = document.createElement("span"); who.className = "who"; who.textContent = m.name;
+    if (m.id === link.me.id) who.insertAdjacentHTML("beforeend", '<span class="badge">You</span>');
+    if (m.id === link.members[0].id) who.insertAdjacentHTML("beforeend", '<span class="badge">Host</span>');
+    if (s.mode !== "jam" && isLead(m.id)) who.insertAdjacentHTML("beforeend", `<span class="badge">${leadWord}</span>`);
+    row.append(dot, who);
+    if (host && m.id !== link.me.id) {
+      if (s.mode !== "jam" && !isLead(m.id)) {
+        const b = document.createElement("button"); b.textContent = `Make ${leadWord.toLowerCase()}`;
+        b.addEventListener("click", () => hostUpdate({ lead: m.id })); row.appendChild(b);
+      }
+      const k = document.createElement("button"); k.textContent = "Remove";
+      k.addEventListener("click", () => link.room.send({ type: "broadcast", event: "kick", payload: { id: m.id } }));
+      row.appendChild(k);
+    }
+    box.appendChild(row);
+  }
+  renderMini();
+}
+
+function wireLink() {
+  for (let n = 2; n <= 8; n++) { const o = document.createElement("option"); o.value = n; o.textContent = `Up to ${n} players`; if (n === 4) o.selected = true; $("newMax").appendChild(o); }
+  $("newMode").addEventListener("change", e => { if (e.target.value === "jam" && +$("newMax").value > 4) $("newMax").value = 4; });
+  $("visSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    link.visibility = b.dataset.vis;
+    $("visSeg").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  }));
+  $("cfgSave").addEventListener("click", () => {
+    const url = $("cfgUrl").value.trim(), key = $("cfgKey").value.trim();
+    if (!/^https:\/\/.+/.test(url) || key.length < 20) { linkMsg("Paste the Project URL (starts with https://) and the full key."); return; }
+    store.set("supabase", { url, key }); linkMsg(""); linkInit();
+  });
+  $("llName").addEventListener("change", e => { link.me.name = e.target.value.trim(); store.set("name", link.me.name); });
+  $("createBtn").addEventListener("click", createRoom);
+  $("joinBtn").addEventListener("click", () => joinRoom(cleanCode($("joinCode").value)));
+  $("joinCode").addEventListener("keydown", e => { if (e.key === "Enter") joinRoom(cleanCode($("joinCode").value)); });
+  $("leaveBtn").addEventListener("click", () => leaveRoom());
+  $("copyLink").addEventListener("click", async () => {
+    const url = location.origin + location.pathname + "?room=" + link.code;
+    try { await navigator.clipboard.writeText(url); linkMsg("Invite link copied."); } catch { linkMsg("Invite link: " + url); }
+  });
+  $("roomMode").addEventListener("change", e => {
+    const mode = e.target.value;
+    if (mode === "jam" && link.members.length > 4) { linkMsg("Jam works best with 4 or fewer players."); }
+    hostUpdate({ mode });
+  });
+  $("roomLock").addEventListener("change", e => hostUpdate({ locked: e.target.checked }));
+  $("optSound").addEventListener("change", e => { link.sound = e.target.checked; store.set("sound", link.sound); if (link.sound) ensureAudio(); });
+  $("optVol").addEventListener("input", e => { link.volume = e.target.value / 100; store.set("vol", link.volume); if (master) master.gain.value = link.volume; });
+  $("foldSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    link.fold = b.dataset.fold === "1"; store.set("fold", link.fold); refreshRemote(); renderLink();
+  }));
+  window.addEventListener("beforeunload", () => leaveRoom(true));
+  buildMini();
+  linkInit();
+}
+
+// ════════ Wire up ═══════════════════════════════════════════════════════
+if (!navigator.bluetooth) { $("noBle").style.display = "block"; $("connectBtn").disabled = true; }
+for (const [name, rgb] of Object.entries(COLORS)) {
+  const b = document.createElement("button");
+  b.className = "swatch"; b.title = name; b.setAttribute("aria-label", name);
+  b.style.background = `rgb(${rgb.join(",")})`; b.setAttribute("aria-pressed", rgb === color);
+  b.addEventListener("click", () => { color = rgb; document.querySelectorAll(".swatch").forEach(s => s.setAttribute("aria-pressed", s === b)); });
+  $("swatches").appendChild(b);
+}
+let bt; $("bright").addEventListener("input", e => { clearTimeout(bt); bt = setTimeout(() => send([0x03, +e.target.value]), 80); });
+$("connectBtn").addEventListener("click", () => device && device.gatt.connected ? device.gatt.disconnect() : connect());
+$("nextBtn").addEventListener("click", () => { phase = "middleC"; render(); });
+$("redoBtn").addEventListener("click", () => { stopSong(); phase = "order"; order = []; clearLit(); render(); });
+$("clearBtn").addEventListener("click", () => { stopSong(); clearLit(); });
+
+async function openFile(file) {
+  try {
+    const s = parseMidi(await file.arrayBuffer());
+    if (!s.title) s.title = file.name.replace(/\.midi?$/i, "");
+    if (!s.tracks.length) throw new Error("No notes found");
+    loadSong(s);
+  } catch (e) { log(`couldn't read ${file.name}: ${e.message}`); }
+}
+$("fileIn").addEventListener("change", e => { if (e.target.files[0]) openFile(e.target.files[0]); e.target.value = ""; });
+$("drop").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("fileIn").click(); } });
+["dragenter","dragover"].forEach(t => $("drop").addEventListener(t, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave","drop"].forEach(t => $("drop").addEventListener(t, e => { e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) openFile(f); });
+$("demoBtn").addEventListener("click", () => loadSong(demoSong()));
+
+$("modeSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+  stopSong(); mode = b.dataset.mode;
+  $("modeSeg").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+}));
+$("speed").addEventListener("input", e => { speed = e.target.value / 100; $("speedVal").textContent = e.target.value + "%"; });
+$("shiftUp").addEventListener("click", () => { stopSong(); shift = Math.min(48, shift + 12); updateSongInfo(); });
+$("shiftDown").addEventListener("click", () => { stopSong(); shift = Math.max(-48, shift - 12); updateSongInfo(); });
+$("fitBtn").addEventListener("click", () => { stopSong(); autoFit(); });
+$("playBtn").addEventListener("click", startSong);
+$("stopBtn").addEventListener("click", stopSong);
+render();
+wireLink();
+</script>
+</body>
+</html>
