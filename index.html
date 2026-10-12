@@ -107,20 +107,55 @@ h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
 .mini .w:first-child { border-left-width: 1px; }
 .mini .b { position: absolute; top: 0; height: 38px; background: var(--black-key); border-radius: 0 0 2px 2px; z-index: 2; }
 @media (max-width: 760px) { .ll-cols { grid-template-columns: 1fr; } }
+
+/* Top navigation */
+.topnav { position: sticky; top: 0; z-index: 50; background: var(--panel); border-bottom: 1px solid var(--line); margin: -24px -16px 0; }
+.topnav-inner { max-width: 1100px; margin: 0 auto; padding: 0 16px; height: 54px; display: flex; align-items: center; gap: 24px; }
+.brand { font-weight: 600; font-size: 1.15rem; letter-spacing: -0.02em; color: var(--text); text-decoration: none; }
+.tabs { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+.tabs a { color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; padding: 6px 12px; border-radius: 6px; white-space: nowrap; }
+.tabs a:hover { color: var(--text); }
+.tabs a.active { color: var(--text); background: var(--track); }
+main { margin-top: 20px; }
+.page { display: none; gap: 16px; }
+.page.active { display: grid; }
+.home { padding: 40px 24px; min-height: 280px; }
+.home h1 { margin-bottom: 8px; }
+#shared { display: grid; gap: 16px; }
+a { color: var(--accent); }
+@media (max-width: 640px) { .topnav-inner { gap: 12px; } .status span:last-child { display: none; } }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>ekimul</h1>
+<nav class="topnav">
+  <div class="topnav-inner">
+    <a class="brand" href="#home">ekimul</a>
+    <div class="tabs" role="tablist">
+      <a href="#home" data-page="home">Home</a>
+      <a href="#setup" data-page="setup">ekimul Setup</a>
+      <a href="#songs" data-page="songs">Song Demo</a>
+      <a href="#lumilink" data-page="lumilink">LumiLink</a>
+    </div>
     <div class="status"><span class="dot" id="dot"></span><span id="statusText">Not connected</span></div>
-  </header>
+  </div>
+</nav>
 
+<main>
   <div class="banner" id="noBle">
     This browser can't use Bluetooth. Open this page in Chrome or Edge on a laptop or Android phone.
     On iPhone, use the Bluefy browser.
   </div>
 
+  <!-- ═════ Home ═════ -->
+  <div class="page" id="page-home">
+    <section class="panel home">
+      <h1>ekimul</h1>
+      <p class="hint">Intro and videos coming soon.</p>
+    </section>
+  </div>
+
+  <!-- ═════ ekimul Setup ═════ -->
+  <div class="page" id="page-setup">
   <!-- Setup -->
   <section class="panel" id="setup">
     <h2 id="setupTitle">Connect</h2>
@@ -133,6 +168,75 @@ h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
     </div>
   </section>
 
+  <!-- Free play -->
+  <section class="panel controls hidden" id="controls">
+    <div class="group"><label>Color</label><span id="swatches" class="group"></span></div>
+    <div class="group">
+      <label for="bright">Brightness</label>
+      <input type="range" id="bright" min="5" max="255" value="25">
+    </div>
+    <button id="clearBtn">Clear all</button>
+  </section>
+  </div>
+
+  <!-- ═════ Song Demo ═════ -->
+  <div class="page" id="page-songs">
+    <section class="panel" id="songsNeedSetup">
+      <h2>Songs</h2>
+      <p class="hint">Connect and set up your modules on the <a href="#setup">ekimul Setup</a> page first.</p>
+    </section>
+  <!-- Songs -->
+  <section class="panel hidden" id="songs">
+    <h2>Songs</h2>
+    <label class="drop" id="drop" tabindex="0">
+      Drop a MIDI file here, or click to choose one (.mid)
+      <input type="file" id="fileIn" accept=".mid,.midi,audio/midi" hidden>
+    </label>
+    <div class="actions" style="margin-top:10px">
+      <button id="demoBtn">Try "Twinkle Twinkle"</button>
+    </div>
+
+    <div id="songUi" class="hidden">
+      <div class="song-title" id="songTitle"></div>
+      <p class="hint" id="songInfo"></p>
+      <div class="tracks" id="tracks"></div>
+
+      <div class="controls">
+        <div class="group">
+          <span class="lbl">Mode</span>
+          <span class="seg" id="modeSeg">
+            <button data-mode="wait" aria-pressed="true">Wait for me</button>
+            <button data-mode="play" aria-pressed="false">Play along</button>
+          </span>
+        </div>
+        <div class="group">
+          <label for="speed">Speed</label>
+          <input type="range" id="speed" min="25" max="150" step="5" value="100">
+          <span id="speedVal" class="lbl">100%</span>
+        </div>
+        <div class="group">
+          <span class="lbl">Octave</span>
+          <button id="shiftDown" aria-label="Octave down">−</button>
+          <span id="shiftVal" class="lbl">0</span>
+          <button id="shiftUp" aria-label="Octave up">+</button>
+          <button id="fitBtn">Auto-fit</button>
+        </div>
+      </div>
+
+      <div class="controls" style="margin-top:14px">
+        <button class="primary" id="playBtn">Start</button>
+        <button id="stopBtn">Stop</button>
+        <span class="legend"><i style="background:rgb(0,200,60)"></i>Right hand</span>
+        <span class="legend"><i style="background:rgb(0,90,255)"></i>Left hand</span>
+        <span id="playStatus" class="hint"></span>
+      </div>
+      <div class="progress"><div id="bar"></div></div>
+    </div>
+  </section>
+  </div>
+
+  <!-- ═════ LumiLink ═════ -->
+  <div class="page" id="page-lumilink">
   <!-- LumiLink -->
   <section class="panel" id="lumilink">
     <h2>LumiLink</h2>
@@ -219,66 +323,10 @@ h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
     </div>
     <p class="hint" id="llMsg" style="margin-top:10px"></p>
   </section>
+  </div>
 
-  <!-- Songs -->
-  <section class="panel hidden" id="songs">
-    <h2>Songs</h2>
-    <label class="drop" id="drop" tabindex="0">
-      Drop a MIDI file here, or click to choose one (.mid)
-      <input type="file" id="fileIn" accept=".mid,.midi,audio/midi" hidden>
-    </label>
-    <div class="actions" style="margin-top:10px">
-      <button id="demoBtn">Try "Twinkle Twinkle"</button>
-    </div>
-
-    <div id="songUi" class="hidden">
-      <div class="song-title" id="songTitle"></div>
-      <p class="hint" id="songInfo"></p>
-      <div class="tracks" id="tracks"></div>
-
-      <div class="controls">
-        <div class="group">
-          <span class="lbl">Mode</span>
-          <span class="seg" id="modeSeg">
-            <button data-mode="wait" aria-pressed="true">Wait for me</button>
-            <button data-mode="play" aria-pressed="false">Play along</button>
-          </span>
-        </div>
-        <div class="group">
-          <label for="speed">Speed</label>
-          <input type="range" id="speed" min="25" max="150" step="5" value="100">
-          <span id="speedVal" class="lbl">100%</span>
-        </div>
-        <div class="group">
-          <span class="lbl">Octave</span>
-          <button id="shiftDown" aria-label="Octave down">−</button>
-          <span id="shiftVal" class="lbl">0</span>
-          <button id="shiftUp" aria-label="Octave up">+</button>
-          <button id="fitBtn">Auto-fit</button>
-        </div>
-      </div>
-
-      <div class="controls" style="margin-top:14px">
-        <button class="primary" id="playBtn">Start</button>
-        <button id="stopBtn">Stop</button>
-        <span class="legend"><i style="background:rgb(0,200,60)"></i>Right hand</span>
-        <span class="legend"><i style="background:rgb(0,90,255)"></i>Left hand</span>
-        <span id="playStatus" class="hint"></span>
-      </div>
-      <div class="progress"><div id="bar"></div></div>
-    </div>
-  </section>
-
-  <!-- Free play -->
-  <section class="panel controls hidden" id="controls">
-    <div class="group"><label>Color</label><span id="swatches" class="group"></span></div>
-    <div class="group">
-      <label for="bright">Brightness</label>
-      <input type="range" id="bright" min="5" max="255" value="25">
-    </div>
-    <button id="clearBtn">Clear all</button>
-  </section>
-
+  <!-- Shared by Setup, Song Demo and LumiLink -->
+  <div id="shared">
   <section class="panel">
     <p class="hint">Click a key to light it. Keys pressed on the real piano get a green outline.</p>
     <div class="piano-wrap"><div class="piano" id="piano"></div></div>
@@ -288,6 +336,7 @@ h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
     <h2>Log</h2>
     <div id="log"></div>
   </section>
+  </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -404,7 +453,9 @@ function onKeyDown(mac, keyIdx) {
   if (phase === "order") {
     if (!order.includes(mac)) {
       order.push(mac); flash(mac, RIGHT);
-      log(`module ${mac.slice(-5)} is position ${order.length}`); render();
+      log(`module ${mac.slice(-5)} is position ${order.length}`);
+      if (order.length >= onlineModules().length) phase = "middleC";   // all ordered → ask for middle C
+      render();
     }
   } else if (phase === "middleC") {
     const p = order.indexOf(mac);
@@ -435,6 +486,7 @@ function render() {
   const ready = phase === "ready" && !!ledChar;
   $("controls").classList.toggle("hidden", !ready);
   $("songs").classList.toggle("hidden", !ready);
+  $("songsNeedSetup").classList.toggle("hidden", ready);
   $("nextBtn").classList.add("hidden");
   $("redoBtn").classList.toggle("hidden", !ready);
 
@@ -777,8 +829,8 @@ function demoSong() {
 
 // ════════ LumiLink ══════════════════════════════════════════════════════
 // Paste your Supabase project values here (or enter them once in the page):
-const SUPABASE_URL ="https://qahhxvuxdycgmeeeboot.supabase.co";   // e.g. "https://abcdefghijkl.supabase.co"
-const SUPABASE_KEY = "sb_publishable_3VYdXWkyLQwi-nvXS7eqwA_jbTAYxMz";   // the anon / publishable key (safe to put in a web page)
+const SUPABASE_URL = "";   // e.g. "https://abcdefghijkl.supabase.co"
+const SUPABASE_KEY = "";   // the anon / publishable key (safe to put in a web page)
 
 const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";            // no 0/O, 1/I/L
 const PLAYER_COLORS = [[255,120,0],[200,0,255],[0,200,200],[255,0,120],[255,200,0],[120,80,255],[0,150,255],[160,255,0]];
@@ -1172,7 +1224,7 @@ function wireLink() {
   $("joinCode").addEventListener("keydown", e => { if (e.key === "Enter") joinRoom(cleanCode($("joinCode").value)); });
   $("leaveBtn").addEventListener("click", () => leaveRoom());
   $("copyLink").addEventListener("click", async () => {
-    const url = location.origin + location.pathname + "?room=" + link.code;
+    const url = location.origin + location.pathname + "?room=" + link.code + "#lumilink";
     try { await navigator.clipboard.writeText(url); linkMsg("Invite link copied."); } catch { linkMsg("Invite link: " + url); }
   });
   $("roomMode").addEventListener("change", e => {
@@ -1233,6 +1285,19 @@ $("playBtn").addEventListener("click", startSong);
 $("stopBtn").addEventListener("click", stopSong);
 render();
 wireLink();
+// ════════ Pages (tabs) ══════════════════════════════════════════════════
+// All pages live in this one file so the Bluetooth connection survives switching tabs.
+const PAGES = ["home", "setup", "songs", "lumilink"];
+function showPage() {
+  let p = location.hash.slice(1);
+  if (!PAGES.includes(p)) p = new URLSearchParams(location.search).get("room") ? "lumilink" : "home";
+  for (const id of PAGES) $("page-" + id).classList.toggle("active", id === p);
+  document.querySelectorAll(".tabs a").forEach(a => a.classList.toggle("active", a.dataset.page === p));
+  $("shared").classList.toggle("hidden", p === "home");
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", showPage);
+showPage();
 </script>
 </body>
 </html>
