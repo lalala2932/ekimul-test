@@ -124,6 +124,11 @@ main { margin-top: 20px; }
 #shared { display: grid; gap: 16px; }
 a { color: var(--accent); }
 @media (max-width: 640px) { .topnav-inner { gap: 12px; } .status span:last-child { display: none; } }
+
+.chord-seq { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; min-height: 34px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 0.9rem; }
+.chip.now { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+.chip button { border: 0; padding: 0 6px; font-size: 1rem; line-height: 1; background: none; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -231,6 +236,41 @@ a { color: var(--accent); }
         <span id="playStatus" class="hint"></span>
       </div>
       <div class="progress"><div id="bar"></div></div>
+    </div>
+  </section>
+  <!-- Chord practice -->
+  <section class="panel hidden" id="chordsPanel">
+    <h2>Chord practice</h2>
+    <p class="hint">Add chords in the order you want. They light up one after another and loop.</p>
+    <div class="controls" style="margin-top:10px">
+      <div class="group">
+        <select id="chRoot" aria-label="Chord root"></select>
+        <select id="chType" aria-label="Chord type"></select>
+        <button id="chAdd">Add chord</button>
+      </div>
+      <div class="group"><label for="chOct">Octave</label><select id="chOct"></select></div>
+    </div>
+    <div class="chord-seq" id="chSeq"></div>
+    <div class="controls" style="margin-top:12px">
+      <div class="group">
+        <span class="lbl">Mode</span>
+        <span class="seg" id="chModeSeg">
+          <button data-chmode="wait" aria-pressed="true">Wait for me</button>
+          <button data-chmode="timed" aria-pressed="false">Timed</button>
+        </span>
+      </div>
+      <div class="group" id="chTempoGrp">
+        <label for="chBpm">Tempo</label>
+        <input type="range" id="chBpm" min="30" max="180" step="5" value="80">
+        <span id="chBpmVal" class="lbl">80 BPM</span>
+        <label for="chBeats">Beats per chord</label>
+        <select id="chBeats"><option>1</option><option>2</option><option selected>4</option><option>8</option></select>
+      </div>
+    </div>
+    <div class="controls" style="margin-top:12px">
+      <button class="primary" id="chStart">Start</button>
+      <button id="chStop">Stop</button>
+      <span id="chStatus" class="hint"></span>
     </div>
   </section>
   </div>
@@ -416,7 +456,7 @@ async function connect() {
   } catch (e) { log("connect failed: " + e.message); $("statusText").textContent = "Not connected"; }
 }
 function onDisconnect() {
-  stopSong();
+  stopSong(); stopChords();
   ledChar = null; modules.clear(); phase = "connect";
   $("dot").classList.remove("on"); $("statusText").textContent = "Disconnected";
   $("connectBtn").textContent = "Connect"; log("disconnected");
@@ -484,6 +524,10 @@ function setupPress(mac, keyIdx) {
     order.forEach((mc, i) => log(`  module ${mc.slice(-5)} → ${noteName(bases[i])}–${noteName(bases[i] + 11)}`));
     phase = "ready";
     setTimeout(() => send([0x12]), 500);
+    setTimeout(() => order.forEach((mc, i) => {          // check each module really took its octave
+      const m = modules.get(mc);
+      if (m && m.base !== bases[i]) log(`⚠ module ${mc.slice(-5)} reports ${m.base === NONE ? "no octave" : noteName(m.base)}, expected ${noteName(bases[i])}`);
+    }), 3500);
     render();
   }
 }
@@ -507,6 +551,8 @@ function render() {
   $("controls").classList.toggle("hidden", !ready);
   $("songs").classList.toggle("hidden", !ready);
   $("songsNeedSetup").classList.toggle("hidden", ready);
+  $("chordsPanel").classList.toggle("hidden", !ready);
+  if (ready) fillChordOctaves();
   $("nextBtn").classList.add("hidden");
   $("redoBtn").classList.toggle("hidden", !ready);
 
@@ -743,6 +789,7 @@ let events = [], evIdx = 0, active = new Map(), songTime = 0, lastWall = 0, song
 let chords = [], chordIdx = 0, needed = new Set();
 
 function startSong() {
+  if (prog.running) stopChords();
   if (!song) return;
   if (playing && !paused) { pauseSong(); return; }
   if (playing && paused) { resumeSong(); return; }
@@ -825,6 +872,7 @@ function showChord() {
 }
 
 function onNoteDown(n) {
+  if (prog.running && prog.mode === "wait") { chordNoteDown(n); return; }
   if (!(playing && !paused && mode === "wait")) return;
   if (needed.has(n)) {
     needed.delete(n);
@@ -835,6 +883,117 @@ function onNoteDown(n) {
     setTimeout(() => { if (sameRgb(lit.get(n), WRONG)) setLit(n, OFF); }, 300);
   }
 }
+
+// ── Chord practice: a list of chords that light in order and loop ───────
+const CHORD_TYPES = [
+  ["",     "Major", [0, 4, 7]],      ["m",    "Minor", [0, 3, 7]],
+  ["7",    "7",     [0, 4, 7, 10]],  ["maj7", "Major 7", [0, 4, 7, 11]],
+  ["m7",   "Minor 7", [0, 3, 7, 10]],["dim",  "Diminished", [0, 3, 6]],
+  ["aug",  "Augmented", [0, 4, 8]],  ["sus2", "Sus 2", [0, 2, 7]],
+  ["sus4", "Sus 4", [0, 5, 7]],
+];
+const prog = { list: [], idx: 0, loop: 1, running: false, mode: "wait", needed: new Set(), timer: 0 };
+const chordLabel = c => NAMES[c.root] + CHORD_TYPES[c.type][0];
+
+// Notes of a chord in root position, starting in the chosen octave, moved by an octave if it doesn't fit.
+function chordNotes(c) {
+  const oct = +$("chOct").value;
+  let notes = CHORD_TYPES[c.type][2].map(iv => 12 * (oct + 1) + c.root + iv);
+  const r = range();
+  if (r) {
+    while (notes[notes.length - 1] > r.hi && notes[0] - 12 >= r.lo) notes = notes.map(n => n - 12);
+    while (notes[0] < r.lo && notes[notes.length - 1] + 12 <= r.hi) notes = notes.map(n => n + 12);
+  }
+  return notes;
+}
+function fillChordOctaves() {
+  const r = range(), sel = $("chOct");
+  if (!r) return;
+  const prev = sel.value, opts = [];
+  for (let o = Math.floor(r.lo / 12) - 1; o <= Math.floor(r.hi / 12) - 1; o++) opts.push(o);
+  const want = opts.includes(+prev) ? +prev : (opts.includes(4) ? 4 : opts[0]);
+  sel.innerHTML = opts.map(o => `<option value="${o}">C${o}${o === 4 ? " (middle C)" : ""}</option>`).join("");
+  sel.value = want;
+}
+function renderChordSeq() {
+  const box = $("chSeq"); box.innerHTML = "";
+  if (!prog.list.length) { box.innerHTML = '<span class="hint">No chords yet.</span>'; return; }
+  prog.list.forEach((c, i) => {
+    const chip = document.createElement("span");
+    chip.className = "chip" + (prog.running && i === prog.idx ? " now" : "");
+    chip.textContent = chordLabel(c);
+    const x = document.createElement("button");
+    x.textContent = "×"; x.setAttribute("aria-label", "Remove " + chordLabel(c));
+    x.addEventListener("click", () => { prog.list.splice(i, 1); if (prog.running) stopChords(); renderChordSeq(); });
+    chip.appendChild(x); box.appendChild(chip);
+  });
+}
+function startChords() {
+  if (!prog.list.length) { $("chStatus").textContent = "Add at least one chord first."; return; }
+  if (playing) stopSong();
+  stopChords();
+  prog.running = true; prog.idx = 0; prog.loop = 1;
+  $("chStart").textContent = "Restart";
+  showProgChord();
+}
+function stopChords() {
+  clearTimeout(prog.timer);
+  const was = prog.running;
+  prog.running = false; prog.needed = new Set();
+  $("chStart").textContent = "Start"; $("chStatus").textContent = "";
+  if (was) clearLit();
+  renderChordSeq();
+}
+function showProgChord() {
+  if (!prog.running) return;
+  const c = prog.list[prog.idx], notes = chordNotes(c), idx = prog.idx;
+  const wasLit = new Set(lit.keys());
+  for (const n of wasLit) setLit(n, OFF);
+  prog.needed = new Set(notes);
+  const light = () => { if (prog.running && prog.idx === idx) for (const n of notes) if (prog.needed.has(n)) setLit(n, RIGHT); };
+  if (notes.some(n => wasLit.has(n))) setTimeout(light, 120); else light();   // blink if the same keys repeat
+  $("chStatus").textContent = `Chord ${prog.idx + 1} of ${prog.list.length}: ${chordLabel(c)} (${notes.map(noteName).join(" ")}) · loop ${prog.loop}`;
+  renderChordSeq();
+  if (prog.mode === "timed") {
+    const ms = +$("chBeats").value * 60000 / +$("chBpm").value;
+    prog.timer = setTimeout(nextProgChord, ms);
+  }
+}
+function nextProgChord() {
+  if (!prog.running) return;
+  prog.idx++;
+  if (prog.idx >= prog.list.length) { prog.idx = 0; prog.loop++; }
+  showProgChord();
+}
+function chordNoteDown(n) {
+  if (prog.needed.has(n)) {
+    prog.needed.delete(n); setLit(n, OFF);
+    if (!prog.needed.size) nextProgChord();
+  } else if (!lit.has(n)) {
+    setLit(n, WRONG);
+    setTimeout(() => { if (sameRgb(lit.get(n), WRONG)) setLit(n, OFF); }, 300);
+  }
+}
+(function initChords() {
+  $("chRoot").innerHTML = NAMES.map((n, i) => `<option value="${i}">${n}</option>`).join("");
+  $("chType").innerHTML = CHORD_TYPES.map((t, i) => `<option value="${i}">${t[1]}</option>`).join("");
+  $("chAdd").addEventListener("click", () => {
+    prog.list.push({ root: +$("chRoot").value, type: +$("chType").value });
+    renderChordSeq();
+  });
+  $("chStart").addEventListener("click", startChords);
+  $("chStop").addEventListener("click", stopChords);
+  $("chOct").addEventListener("change", () => { if (prog.running) showProgChord(); });
+  $("chBpm").addEventListener("input", () => { $("chBpmVal").textContent = $("chBpm").value + " BPM"; });
+  document.querySelectorAll("#chModeSeg button").forEach(b => b.addEventListener("click", () => {
+    prog.mode = b.dataset.chmode;
+    document.querySelectorAll("#chModeSeg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    $("chTempoGrp").classList.toggle("hidden", prog.mode !== "timed");
+    if (prog.running) { clearTimeout(prog.timer); showProgChord(); }
+  }));
+  $("chTempoGrp").classList.add("hidden");
+  renderChordSeq();
+})();
 
 // Built-in demo so you can test without a file
 function demoSong() {
@@ -1275,7 +1434,7 @@ for (const [name, rgb] of Object.entries(COLORS)) {
 let bt; $("bright").addEventListener("input", e => { clearTimeout(bt); bt = setTimeout(() => send([0x03, +e.target.value]), 80); });
 $("connectBtn").addEventListener("click", () => device && device.gatt.connected ? device.gatt.disconnect() : connect());
 $("nextBtn").addEventListener("click", () => { phase = "middleC"; render(); });
-$("redoBtn").addEventListener("click", () => { stopSong(); phase = "order"; order = []; clearLit(); render(); });
+$("redoBtn").addEventListener("click", () => { stopSong(); stopChords(); phase = "order"; order = []; clearLit(); render(); });
 $("clearBtn").addEventListener("click", () => { stopSong(); clearLit(); });
 
 async function openFile(file) {
